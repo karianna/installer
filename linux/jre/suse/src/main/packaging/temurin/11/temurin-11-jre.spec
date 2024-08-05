@@ -1,10 +1,10 @@
-%global upstream_version 11.0.19+7
+%global upstream_version 11.0.24+8
 # Only [A-Za-z0-9.] allowed in version:
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/#_upstream_uses_invalid_characters_in_the_version
 # also not very intuitive:
 #  $ rpmdev-vercmp 11.0.13.0.1___7 11.0.13.0.0+8
 #  11.0.13.0.0___8 == 11.0.13.0.0+8
-%global spec_version 11.0.19.0.0.7
+%global spec_version 11.0.24.0.0.8
 %global spec_release 1
 %global priority 1112
 
@@ -161,7 +161,7 @@ popd
 %post
 if [ $1 -ge 1 ] ; then
     update-alternatives --install %{_bindir}/java java %{prefix}/bin/java %{priority} \
-                        --slave %{_bindir}/jaotc jfr %{prefix}/bin/jaotc \
+                        --slave %{_bindir}/jaotc jaotc %{prefix}/bin/jaotc \
                         --slave %{_bindir}/jfr jfr %{prefix}/bin/jfr \
                         --slave %{_bindir}/jjs jjs %{prefix}/bin/jjs \
                         --slave %{_bindir}/jrunscript jrunscript %{prefix}/bin/jrunscript \
@@ -190,9 +190,21 @@ fi
 %{prefix}
 
 %changelog
-* Wed Apr 26 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.19.0.0.7.adopt0
+* Wed Jul 17 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.24.0.0.8-1
+- Eclipse Temurin 11.0.24.0+8 release.
+* Wed Apr 17 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.23.0.0.9-1
+- Eclipse Temurin 11.0.23.0+9 release.
+* Tue Jan 23 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.22.0.0.7-1
+- Eclipse Temurin 11.0.22.0+7 release.
+* Thu Oct 26 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.21.0.0.1-9
+- Eclipse Temurin 11.0.21.0+9 release.
+* Thu Aug 31 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.20.1.0.1-1
+- Eclipse Temurin 11.0.20.1+1 release.
+* Tue Jul 25 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.20.0.0.8-1
+- Eclipse Temurin 11.0.20+8 release.
+* Wed Apr 26 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.19.0.0.7-1
 - Eclipse Temurin JRE 11.0.19+7 release.
-* Wed Feb 22 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.362.0.0.9-2.adopt0
+* Wed Feb 22 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.18.0.0.10-2
 - Eclipse Temurin JRE 11.0.18+10 release 2.
-* Mon Jan 30 2023 11:35:00 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.18.0.0.10.adopt0
+* Mon Jan 30 2023 11:35:00 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.18.0.0.10-1
 - Eclipse Temurin JRE 11.0.18+10 release.

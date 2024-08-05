@@ -3,7 +3,7 @@
 pkg_name = msopenjdk-17
 priority = 1711
 jvm_tools = jar jarsigner java javac javadoc javap jcmd jconsole jdb jdeprscan jdeps jfr jhsdb jimage jinfo jlink jmap jmod jpackage jps jrunscript jshell jstack jstat jstatd keytool rmiregistry serialver jexec jspawnhelper
-url_version = 17.0.8
+url_version = 17.0.12
 amd64_tarball_url = https://aka.ms/download-jdk/microsoft-jdk-$(url_version)-linux-x64.tar.gz
 amd64_checksum_url = https://aka.ms/download-jdk/microsoft-jdk-$(url_version)-linux-x64.tar.gz.sha256sum.txt
 arm64_tarball_url = https://aka.ms/download-jdk/microsoft-jdk-$(url_version)-linux-aarch64.tar.gz
@@ -61,13 +61,6 @@ override_dh_auto_install:
 
 	# Add jinfo file (alternatives support).
 	cp debian/jinfo "$(d)/$(jvm_home)/.$(pkg_alias).jinfo"
-
-	# Strip bundled Freetype and use OS package instead.
-	rm -f "$(d)/$(jvm_home)/$(jvm_dir)/lib/libfreetype.so"
-
-	# Replace bundled cacerts and redirect to adoptium-ca-certificates.
-	rm -f "$(d)/$(jvm_home)/$(jvm_dir)/lib/security/cacerts"
-	ln -s /etc/ssl/certs/adoptium/cacerts "$(d)/$(jvm_home)/$(jvm_dir)/lib/security/cacerts"
 
 	# Ensure src.zip is present in the root folder of the JDK.
 	if [ ! -f "$(d)/$(jvm_home)/$(jvm_dir)/src.zip" ]; then \

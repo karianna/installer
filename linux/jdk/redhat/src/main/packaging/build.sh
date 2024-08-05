@@ -31,8 +31,10 @@ echo "DEBUG: building RH arch ${buildArch} with jdk version ${buildVersion}"
 # Build specified target or build all
 if [ "${buildArch}" != "all" ]; then
 	targets=${buildArch}
-elif [ "${buildVersion}" = "20" ]; then
-        targets="x86_64 aarch64 armv7hl"
+elif [ ${buildVersion} -eq 17 ]; then
+        targets="x86_64 ppc64le aarch64 armv7hl s390x riscv64"
+elif [ ${buildVersion} -gt 20 ]; then
+        targets="x86_64 ppc64le aarch64 s390x riscv64"
 else
 	targets="x86_64 ppc64le aarch64 armv7hl s390x"
 fi
@@ -61,5 +63,9 @@ done;
 find /home/builder/rpmbuild/SRPMS /home/builder/rpmbuild/RPMS -type f -name "*.rpm" -print0 | xargs -0 -I {} cp {} /home/builder/out
 # Sign generated RPMs with rpmsign.
 if grep -q %_gpg_name /home/builder/.rpmmacros; then
-	rpmsign --addsign /home/builder/out/*.rpm
-fi
+	rm -f ~/.gnupg/public-keys.d/pubring.db.lock
+	for file in `ls /home/builder/out/*.rpm`; do
+		echo Signing: $file
+	  rpmsign --addsign $file
+  done
+fi;

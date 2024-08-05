@@ -1,3 +1,4 @@
+
 /*
 --------------------------------------------
 buildArch   RPM         DEB         Comments
@@ -8,6 +9,7 @@ aarch64     aarch64     arm64       arm64
 ppc64le     ppc64le     ppc64le
 source      src         -           only for SRPM and no need specify as option or target
 s390x       s390x       s390x       only for jdk8+
+riscv64     riscv64     riscv64     only for JDK17+
 */
 
 env.NODE_LABEL = 'dockerBuild&&linux&&x64' // Default node and also used for build RedHat + Suse + Debian x64
@@ -28,13 +30,16 @@ pipeline {
     agent {
         label NODE_LABEL
     }
+    tools {
+        jfrog 'jfrog-cli'
+    }
     options {
         timeout(time: 2, unit: 'HOURS')
     }
     parameters {
         choice(name: 'TYPE', choices: Types.ALL, description: 'Build JDK or JRE')
-        choice(name: 'VERSION', choices: ['8', '11', '17', '20'], description: 'Build for specific JDK VERSION')
-        choice(name: 'ARCH', choices: ['x86_64', 'armv7l', 'aarch64', 'ppc64le', 's390x', 'all'], description: 'Build for specific platform\n s390x not for VERSION 8\n')
+        choice(name: 'VERSION', choices: ['8', '11', '17', '21', '22'], description: 'Build for specific JDK VERSION')
+        choice(name: 'ARCH', choices: ['x86_64', 'armv7hl', 'armv7l', 'aarch64', 'ppc64le', 's390x', 'riscv64', 'all'], description: 'Build for specific platform\n s390x not for VERSION 8\n Use armv7l for DebARM32 armv7hl for RH/Suse')
         choice(name: 'DISTRO', choices: ['all', 'Alpine', 'Debian', 'RedHat', 'Suse'], description: 'Build for specific Distro\n Select RPM builds for RedHat and Suse')
         booleanParam(name: 'uploadPackage', defaultValue: false, description: 'Tick this box to upload the deb/rpm files (exclude src.rpm) to Artifactory for official release')
         booleanParam(name: 'uploadSRCRPM', defaultValue: false, description: 'Tick this box to upload (src.rpm files) to Artifactory')
@@ -64,8 +69,7 @@ pipeline {
                 }
             }
         }
-        stage('BUILD')
-        {
+        stage('BUILD') {
             parallel{
                 stage('Build Installer for Alpine') {
                     when  {
@@ -78,7 +82,7 @@ pipeline {
                     steps{
                         dir('linuxDebian') {
                             script {
-                                jenkinsStepNonDeb("Alpine")
+                                jenkinsStepAlpine()
                             }
                         }
                     }
@@ -128,6 +132,7 @@ pipeline {
                     steps {
                         dir('linuxSuse') {
                             script {
+                                DISTRO = 'Suse'
                                 jenkinsStepNonDeb('Suse')
                             }
                         }
@@ -151,54 +156,210 @@ private String getCurrentBranch() {
     return scm.branches.first().name ?: 'master'
 }
 
+// Define Generic Test & Upload Function
+def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
+  echo "Entering Check & Upload"
+  // Set Env Vars For Debs & Rpms
+  env.BUILDARCH = BuildArch
+  env.VERSION = Version
+  env.DISTROLIST = DistroList
+  env.VALUE = Value
+  env.PACKAGEDIR = PackageDir
+  env.KEY = Key
+  env.FILENAME = FileName
+  try {
+    def ResponseCode = sh(script: "curl -o /dev/null --silent --head --write-out '%{http_code}' ${Target}", returnStdout: true).trim()
+    echo "ResponseCode = ${ResponseCode}"
+    if ( ResponseCode == '200') {
+      echo "Target Exists - Skipping"
+    } else {
+      echo "Target Doesnt Exist - Upload Files"
+      switch(Distro) {
+           case "Debian":
+               // Not RISC Use JF CLI
+               if (BuildArch != "riscv64") {
+                 jf 'rt u **/build/ospackage/temurin-*${BUILDARCH}.deb deb/pool/main/t/temurin-${VERSION}/ --target-props=${DISTROLIST}deb.component=main;deb.architecture=${BUILDARCH} --flat=true'
+               }
+               if (BuildArch == "riscv64") {
+               handleRISCVUpload("Debian", "${BUILDARCH}", "${VERSION}", "${DISTROLIST}", "", "", "")
+             }
+               break
+           case "Alpine":
+               jf 'rt u **/build/ospackage/${FILENAME} apk/alpine/main/${BUILDARCH}/ --flat=true'
+               break
+           case "RPMS":
+              if (BuildArch != "riscv64") {
+                jf 'rt u **/build/ospackage/*.${VALUE}.rpm ${PACKAGEDIR}/${KEY}/Packages/ --flat=true'
+              }
+              if (BuildArch == "riscv64") {
+                handleRISCVUpload("RPMS","" ,"", "", "${VALUE}", "${PACKAGEDIR}", "${KEY}" )
+              }
+              break
+           default:
+              echo "Default Case"
+              if (BuildArch != "riscv64") {
+                jf 'rt u **/build/ospackage/*.${VALUE}.rpm ${PACKAGEDIR}/${KEY}/Packages/ --flat=true'
+              }
+              if (BuildArch == "riscv64") {
+                handleRISCVUpload("RPMS","" ,"", "", "${VALUE}", "${PACKAGEDIR}", "${KEY}" )
+              }
+              break
+       }
+    }
+  } catch (Exception e) {
+    error "Error While Checking URL ${Target}: ${e.message}"
+  }
+}
+
+// RISC-V Upload Function
+def handleRISCVUpload(String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key ) {
+    node("dockerBuild&&linux&&x64") {
+      tool name: 'jfrog-cli', type: 'jfrog'
+
+      env.DISTRO = Distro
+      env.BUILDARCH = BuildArch
+      env.VERSION = Version
+      env.DISTROLIST = DistroList
+      env.VALUE = Value
+      env.PACKAGEDIR = PackageDir
+      env.KEY = Key
+
+      def copiedFiles = copyArtifacts(filter: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*', projectName: env.JOB_NAME, selector: specific(env.BUILD_NUMBER))
+
+        switch(Distro) {
+          case "Debian":
+            echo "Debian Upload"
+            jf 'rt u **/build/ospackage/temurin-*${BUILDARCH}.deb deb/pool/main/t/temurin-${VERSION}/ --target-props=${DISTROLIST}deb.component=main;deb.architecture=${BUILDARCH} --flat=true'
+            break
+          case "RPMS":
+            echo "RPM Upload"
+            jf 'rt u **/build/ospackage/*.${VALUE}.rpm ${PACKAGEDIR}/${KEY}/Packages/ --flat=true'
+            break
+          default:
+             echo "Default Upload"
+             jf 'rt u **/build/ospackage/*.${VALUE}.rpm ${PACKAGEDIR}/${KEY}/Packages/ --flat=true'
+             break
+        }
+        // Remove copied artifacts
+        for (copiedFile in copiedFiles) {
+            fileToDelete = copiedFile.filePath
+            echo "Deleting file: ${fileToDelete}"
+            deleteDir(path: fileToDelete)
+        }
+    }
+}
+
 // function only handle debian as DISTRO
 def jenkinsStepDeb() {
     def temurinVersion = "${TYPE.toLowerCase()} ${VERSION} - ${ARCH}"
+    def VERSION = "${VERSION}"
     echo "Installer Job for Temurin ${temurinVersion} - Debian"
     //make sure this is an array not a string
     def debArchAllList = []
     // for one single ARCH add into array
     debArchAllList.add("${ARCH}")
+
     // when ARCH = all, rewrite list
     if ("${ARCH}" == 'all') {
+        debArchAllList = ['x86_64', 'armv7l', 'aarch64', 'ppc64le', 's390x', 'riscv64']
+    }
+    // remove s390x for JDK8
+    if ("${VERSION}" == '8' && "${ARCH}" == 'all') {
+        debArchAllList = ['x86_64', 'armv7l', 'aarch64', 'ppc64le']
+    }
+    // remove riscv64 for JDK11
+    if ("${VERSION}" == '11' && "${ARCH}" == 'all') {
         debArchAllList = ['x86_64', 'armv7l', 'aarch64', 'ppc64le', 's390x']
     }
-    // remove s390x for JDK8 and JDK20
-    if ("${VERSION}" == '8' || "${VERSION}" == '20') {
-        debArchAllList.remove('s390x')
+    // remove Arm32 & add riscv64 for JDK21
+    if ("${VERSION}" == '21' && "${ARCH}" == 'all' ) {
+        debArchAllList = ['x86_64', 'aarch64', 'ppc64le', 's390x', 'riscv64']
     }
-    // remove armv7l for JDK20
-    if ("${VERSION}" == '20') {
-        debArchAllList.remove('armv7l')
+    // remove Arm32 & add riscv64 for JDK22
+    if ("${VERSION}" == '22' && "${ARCH}" == 'all') {
+        debArchAllList = ['x86_64', 'aarch64', 'ppc64le', 's390x', 'riscv64']
     }
+
     debArchAllList.each { DebARCH ->
         // special handle: no label x86_64 only x64 for debian agent
         def debLabel = "${DebARCH}&&docker"
         if ("${DebARCH}" == 'x86_64') {
             debLabel = 'x64&&dockerBuild'
         }
+        // special handle: force arm32 on arm 64 dockerhost
+        if ("${DebARCH}" == 'armv7l') {
+            debLabel = 'armv8&&build&&dockerBuild&&dockerhost'
+        }
+        if ("${DebARCH}" == 'riscv64') {
+            debLabel = 'riscv64&&dockerInstaller'
+        }
         // reallocate jenkins agent per element in list
         node("linux&&${debLabel}") {
             setup('Debian', "${DebARCH}")
+            if ("${DebARCH}" != 'riscv64') {
+                tool name: 'jfrog-cli', type: 'jfrog'
+            }
             unstash 'installercode'
-            buildAndTest('Debian', "${DebARCH}")
+            buildAndTest('Debian', "${DebARCH}","${VERSION}")
             if (params.uploadPackage.toBoolean()) {
                 echo "Upload artifacts for ${VERSION} - ${DebARCH} - Debian"
-                uploadArtifacts('Debian', "${DebARCH}")
+                uploadArtifacts('Debian', "${DebARCH}", "${VERSION}")
             }
         }
     }
 }
 
-// function handle both Alpine, RedHat and Suse as DISTRO
+// Function to handle Alpine Distro
+def jenkinsStepAlpine() {
+    def temurinVersion = "${TYPE.toLowerCase()} ${VERSION} - ${ARCH}"
+    def VERSION = "${VERSION}"
+    echo "Installer Job for Temurin ${temurinVersion} - Alpine"
+    //make sure this is an array not a string
+    def apkArchAllList = []
+    // for one single ARCH add into array
+    apkArchAllList.add("${ARCH}")
+    // when ARCH = all, rewrite list
+    if ("${ARCH}" == 'all') {
+        apkArchAllList = ['x86_64', 'aarch64']
+    }
+    // remove aarch64 for JDK20 and below
+    def versionInt = VERSION as int // Parse Version As Integer
+    if (versionInt < 21) {
+          apkArchAllList.remove('aarch64')
+    }
+
+    apkArchAllList.each { ApkARCH ->
+        // special handle: no label x86_64 only x64 for alpine agent
+        def apkLabel = "${ApkARCH}&&docker"
+
+        if ("${ApkARCH}" == 'x86_64') {
+            apkLabel = 'x64&&dockerBuild'
+        }
+        // reallocate jenkins agent per element in list
+        if (ApkARCH == 'x86_64' || ApkARCH == 'aarch64') {
+        node("linux&&${apkLabel}") {
+            setup('Alpine', "${ApkARCH}")
+            tool name: 'jfrog-cli', type: 'jfrog'
+            unstash 'installercode'
+            buildAndTest('Alpine', "${ApkARCH}", "${VERSION}")
+            if (params.uploadPackage.toBoolean()) {
+                echo "Upload artifacts for ${VERSION} - ${ApkARCH} - Alpine"
+                uploadArtifacts('Alpine', "${ApkARCH}", "${VERSION}")
+            }
+        }
+      }
+    }
+}
+
+// function handle both RedHat and Suse as DISTRO
 def jenkinsStepNonDeb(String DISTRO) {
     echo "Installer Job for Temurin jdk ${VERSION} - ${ARCH} - ${DISTRO}"
     setup("${DISTRO}", "${ARCH}")
     unstash 'installercode'
-    buildAndTest("${DISTRO}", "${ARCH}")
+    buildAndTest("${DISTRO}", "${ARCH}", "${VERSION}")
     if (params.uploadPackage.toBoolean()) {
-        echo "Upload artifacts for ${VERSION} - ${ARCH} - ${DISTRO}"
-        uploadArtifacts("${DISTRO}", "${ARCH}")
+        echo "Upload artifacts for ${DISTRO} - ${ARCH} - ${VERSION}"
+        uploadArtifacts("${DISTRO}", "${ARCH}", "${VERSION}")
     }
 }
 
@@ -212,7 +373,7 @@ def setup(String DISTRO, String buildArch) {
 }
 
 // common function regardless DISTRO
-def buildAndTest(String DISTRO, String buildArch) {
+def buildAndTest(String DISTRO, String buildArch, String VERSION) {
     try {
         if (DISTRO != "Debian") { // for RPM based: RedHat / Suse / Alpine
             def privateKey = 'adoptium-artifactory-gpg-key'
@@ -222,10 +383,10 @@ def buildAndTest(String DISTRO, String buildArch) {
             if (params.enableGpgSigning) {
                 // Use Adoptium GPG key for signing
                 withCredentials([file(credentialsId: privateKey, variable: 'GPG_KEY')]) {
-                    buildCli(DISTRO, buildArch, GPG_KEY)
+                    buildCli(DISTRO, buildArch, GPG_KEY, VERSION)
                 }
             } else {
-                buildCli(DISTRO, buildArch)
+                buildCli(DISTRO, buildArch, VERSION)
             }
         } else {
             def gBuildTask = (buildArch == 'x86_64') ? "package${TYPE}${DISTRO} check${TYPE}${DISTRO}" : "package${TYPE}${DISTRO}"
@@ -234,8 +395,31 @@ def buildAndTest(String DISTRO, String buildArch) {
                 'armv7l': 'armhf',
                 'aarch64': 'arm64',
                 'ppc64le': 'ppc64el',
-                's390x'  : 's390x'
+                's390x'  : 's390x',
+                'riscv64'  : 'riscv64'
             ]
+
+            switch (VERSION) {
+              case "8":
+                debArchList.remove('riscv64')
+                debArchList.remove('s390x')
+                break
+              case "11":
+                debArchList.remove('riscv64')
+                break
+              case "21":
+                debArchList.remove('armv7l')
+                break
+              case "22":
+                debArchList.remove('armv7l')
+                break
+              default:
+                // Handle Any other cases by defaulting to the main list.
+                break
+            }
+
+            echo "Build Architecture List = ${debArchList}"
+
             def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${env.PRODUCT} -PPRODUCT_VERSION=${VERSION} -PARCH=${debArchList[buildArch]}"
             buildCli = params.enableDebug.toBoolean() ? buildCli + ' --stacktrace' : buildCli
             sh("$buildCli")
@@ -249,7 +433,7 @@ def buildAndTest(String DISTRO, String buildArch) {
     }
 }
 
-private void buildCli(String DISTRO, String buildArch, String GPG_KEY = null) {
+private void buildCli(String DISTRO, String buildArch, String GPG_KEY = null, String VERSION) {
     def buildCli = "./gradlew package${TYPE}${DISTRO} check${TYPE}${DISTRO} --parallel -PPRODUCT=${env.PRODUCT} -PPRODUCT_VERSION=${VERSION} -PARCH=${buildArch}"
     if (GPG_KEY) {
         buildCli += " -PGPG_KEY=${GPG_KEY}"
@@ -260,56 +444,73 @@ private void buildCli(String DISTRO, String buildArch, String GPG_KEY = null) {
     sh(buildCli)
 }
 
-def uploadArtifacts(String DISTRO, String buildArch) {
+def uploadArtifacts(String DISTRO, String buildArch, String Version) {
     switch(DISTRO) {
         case "Debian":
-            uploadDebArtifacts(buildArch)
+            uploadDebArtifacts(buildArch, Version)
             break
         case "Alpine":
             uploadAlpineArtifacts(buildArch)
             break
         default:
-            uploadRpmArtifacts(DISTRO,buildArch)
+            uploadRpmArtifacts(DISTRO, buildArch, Version)
             break
     }
 }
 
 def uploadAlpineArtifacts(String buildArch) {
-    // currently only support x64 as buildArch
-    rtUpload ( //artifactory plugin
-        serverId: 'adoptium.jfrog.io',
-        failNoOp: true,
-        spec: """{
-            "files": [
-                {
-                "pattern": "**/build/ospackage/temurin-*j*.apk",
-                "target": "apk/alpine/main/${buildArch}/"
-                },
-                {
-                "pattern": "**/build/ospackage/temurin-*src*.apk",
-                "target": "apk/alpine/main/${buildArch}/"
-                }
-            ]
-        }""",
-    )
+    // currently only support x64 & aarch64 as buildArch
+    // set BUILDARCH environment variable for ${buildArch}
+    env.BUILDARCH = buildArch
+
+    def Distro = "Alpine"
+    def PackFiles = findFiles(glob: '**/build/ospackage/temurin-*j*.apk') // List All Packages To Upload
+    def SrcFiles = findFiles(glob: '**/build/ospackage/temurin-*src*.apk') // List All Sources To Upload
+    def AllFiles = PackFiles + SrcFiles
+
+    for (PackFile in AllFiles) {
+      def FileName = PackFile.name
+      def Target = "https://adoptium.jfrog.io/artifactory/apk/alpine/main/${BUILDARCH}/${FileName}"
+      CheckAndUpload(Target, Distro, buildArch, '', '', '', '', '' , FileName)
+    }
+
+    // unset BUILDARCH environment variable
 }
 
-def uploadDebArtifacts(String buildArch) {
+def uploadDebArtifacts(String buildArch, String Version) {
+    env.VERSION = Version
+    def Distro = "Debian"
+
     def debArchList = [
         'x86_64' : 'amd64',
         'armv7l': 'armhf',
         'aarch64': 'arm64',
         'ppc64le': 'ppc64el',
-        's390x'  : 's390x'
+        's390x'  : 's390x',
+        'riscv64'  : 'riscv64'
     ]
-    // if VERSION is 8 or 20 remove s390x from the list
-    if (VERSION == '8' || VERSION == '20') {
-        debArchList.remove('s390x')
+
+    if (['8', '11', '17', '21', '22'].contains(VERSION)) {
+        debArchList = [
+            'x86_64' : 'amd64',
+            'armv7l': 'armhf',
+            'aarch64': 'arm64',
+            'ppc64le': 'ppc64el',
+            's390x'  : 's390x',
+            'riscv64'  : 'riscv64'
+        ]
+        if (['21', '22'].contains(VERSION)) {
+            debArchList.remove('armv7l') // Removing armv7l for versions 21 and 22
+        }
+        if (VERSION == "8") {
+            debArchList.remove('s390x') // Removing s390x for version 8
+        }
+    } else {
+        echo "Unsupported version: ${VERSION}"
+        return // Exit the function for unsupported versions
     }
-    // if VERSION is 20 remove armv7l from the list
-    if (VERSION == '20') {
-        debArchList.remove('armv7l')
-    }
+
+    echo "Debian Architecture Upload List = ${debArchList}"
 
     /*
         Debian/Ubuntu   10.0       11.0        16.04     20.04    22.04    22.10
@@ -317,13 +518,14 @@ def uploadDebArtifacts(String buildArch) {
         also update linux/{jdk,jre}/debian/main/packing/build.sh
     */
     def deb_versions = [
+            "trixie", // Debian/13
             "bookworm", // Debian/12
             "bullseye", // Debian/11
             "buster",   // Debian/10
-            "kinetic",  // Ubuntu/22.10
+            "noble",    // Ubuntu/24.04 (LTS)
             "jammy",    // Ubuntu/22.04 (LTS)
             "focal",    // Ubuntu/20.04 (LTS)
-            "bionic",   // Ubuntu/18.04 (LTS)
+            "bionic"   // Ubuntu/18.04 (LTS)
     ]
     def distro_list = ''
     deb_versions.each { deb_version ->
@@ -340,25 +542,25 @@ def uploadDebArtifacts(String buildArch) {
             */
             sleep 2
         } else {
-            rtUpload( //artifactory plugin
-                serverId: 'adoptium.jfrog.io',
-                failNoOp: true,
-                spec: """{
-                    "files": [
-                        {
-                        "pattern": "**/build/ospackage/temurin-*${debArchList[buildArch]}.deb",
-                        "target": "deb/pool/main/t/temurin-${VERSION}/",
-                        "props": "${distro_list}deb.component=main;deb.architecture=${debArchList[buildArch]}"
-                        }
-                    ]
-                }""",
-            )
-            break
+            env.BUILDARCH = debArchList[buildArch]
+            env.DISTROLIST = distro_list
+
+            def PackFiles = findFiles(glob: "**/build/ospackage/temurin-*${debArchList[buildArch]}.deb") // List All Packages To Upload
+            for (PackFile in PackFiles) {
+              def FileName = PackFile.name
+              echo "Prepare For Version = ${VERSION}"
+              def Target = "https://adoptium.jfrog.io/artifactory/deb/pool/main/t/temurin-${VERSION}/${FileName}"
+
+              CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )
+            }
+          }
+          break
         }
-    }
 }
 
-def uploadRpmArtifacts(String DISTRO, String rpmArch) {
+def uploadRpmArtifacts(String DISTRO, String rpmArch, String Version) {
+    env.VERSION = Version
+    def Distro = "RPM"
     def distro_Package = [
         'redhat' : [
             'rpm/centos/7',
@@ -370,39 +572,54 @@ def uploadRpmArtifacts(String DISTRO, String rpmArch) {
             'rpm/fedora/36',
             'rpm/fedora/37',
             'rpm/fedora/38',
+            'rpm/fedora/39',
+            'rpm/fedora/40',
             'rpm/oraclelinux/7',
             'rpm/oraclelinux/8',
             'rpm/amazonlinux/2'
-
         ],
         'suse'   : [
             'rpm/opensuse/15.3',
             'rpm/opensuse/15.4',
+            'rpm/opensuse/15.5',
             'rpm/sles/12',
             'rpm/sles/15'
         ]
     ]
     def packageDirs = distro_Package[DISTRO.toLowerCase()]
-    def rpmArchList=[
-        'x86_64' : 'x86_64',
-        'armv7hl': 'armv7hl',
-        'aarch64': 'aarch64',
-        'ppc64le': 'ppc64le',
-        's390x'  : 's390x'
+
+    def rpmArchList = [
+    'x86_64': 'x86_64',
+    'armv7hl': 'armv7hl',
+    'aarch64': 'aarch64',
+    'ppc64le': 'ppc64le'
     ]
-    // if VERSION is 8 or 20 remove s390x from the list
-    if (VERSION == '8' || VERSION == '20') {
-        rpmArchList.remove('s390x')
+
+    if (VERSION == '11') {
+      rpmArchList['s390x'] = 's390x'
     }
-    // if VERSION is 20 remove armv7hl from the list
-    if (VERSION == '20') {
-        rpmArchList.remove('armv7hl')
-    }
+
+    if (VERSION == '17') {
+    rpmArchList['s390x'] = 's390x'
+    rpmArchList['riscv64'] = 'riscv64'
+  }
+  if (VERSION == '21') {
+    rpmArchList['s390x'] = 's390x'
+    rpmArchList['riscv64'] = 'riscv64'
+  }
+  if (VERSION == '22') {
+    rpmArchList['s390x'] = 's390x'
+    rpmArchList['riscv64'] = 'riscv64'
+  }
 
     if ("${rpmArch}" != 'all') {
         // when only build and upload one arch, reset
-        rpmArchList = [("${rpmArch}" as String): "${rpmArchList[rpmArch]}"]
+        // rpmArchList = [("${rpmArch}" as String): "${rpmArchList[rpmArch]}"]
+        rpmArchList = [
+            (rpmArch): (rpmArch)
+        ]
     }
+
     // Enable upload src.rpm
     if ( params.uploadSRCRPM.toBoolean() || params.DISTRO == 'all' ) {
         rpmArchList.put('source', 'src')
@@ -419,21 +636,21 @@ def uploadRpmArtifacts(String DISTRO, String rpmArch) {
                     */
                     sleep 2
                 } else {
-                    rtUpload(
-                        serverId: 'adoptium.jfrog.io',
-                        failNoOp: true,
-                        spec: """{
-                            "files": [
-                                {
-                                "pattern": "**/build/ospackage/*.${entry.value}.rpm",
-                                "target": "${packageDir}/${entry.key}/Packages/"
-                                }
-                            ]
-                        }"""
-                    )
+                    env.VALUE = entry.value
+                    env.KEY = entry.key
+                    env.PACKAGEDIR = packageDir
+
+                    def PackFiles = findFiles(glob: "**/build/ospackage/t*.${entry.value}.rpm") // List All Packages To Upload For Temurin
+
+                    for (PackFile in PackFiles) {
+                      def FileName = PackFile.name
+                      def Target = "https://adoptium.jfrog.io/artifactory/${PACKAGEDIR}/${KEY}/Packages/${FileName}"
+
+                      CheckAndUpload(Target, Distro, rpmArchList.each, '', '', VALUE , PACKAGEDIR, KEY, '' )
+                    }
                     break
                 }
             }
         }
-    }
+  }
 }

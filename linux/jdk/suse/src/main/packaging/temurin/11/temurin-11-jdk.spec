@@ -1,11 +1,11 @@
-%global upstream_version 11.0.19+7
+%global upstream_version 11.0.24+8
 # Only [A-Za-z0-9.] allowed in version:
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/#_upstream_uses_invalid_characters_in_the_version
 # also not very intuitive:
 #  $ rpmdev-vercmp 11.0.13.0.1___7 11.0.13.0.0+8
 #  11.0.13.0.0___8 == 11.0.13.0.0+8
-%global spec_version 11.0.19.0.0.7
-%global spec_release 2
+%global spec_version 11.0.24.0.0.8
+%global spec_release 1
 %global priority 1111
 
 %global source_url_base https://github.com/adoptium/temurin11-binaries/releases/download
@@ -255,25 +255,37 @@ fi
 %{prefix}
 
 %changelog
-* Thu May 4 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.19.0.0.7-2.adopt0
+* Wed Jul 17 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.24.0.0.8-1
+- Eclipse Temurin 11.0.24.0+8 release.
+* Wed Apr 17 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.23.0.0.9-1
+- Eclipse Temurin 11.0.23.0+9 release.
+* Mon Jan 23 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.22.0.0.7-1
+- Eclipse Temurin 11.0.22.0+7 release.
+* Thu Oct 26 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.21.0.0.1-9
+- Eclipse Temurin 11.0.21.0+9 release.
+* Thu Aug 31 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.20.1.0.1-1
+- Eclipse Temurin 11.0.20.1+1 release.
+* Tue Jul 25 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.20.0.0.8-1
+- Eclipse Temurin 11.0.20+8 release.
+* Thu May 4 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.19.0.0.7-2
 - Fix alternatives linking.
-* Wed Apr 26 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.19.0.0.7-1.adopt0
+* Wed Apr 26 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.19.0.0.7-1
 - Eclipse Temurin 11.0.19+7 release.
-* Wed Feb 22 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.18.0.0.10-2.adopt0
+* Wed Feb 22 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.18.0.0.10-2
 - Eclipse Temurin 11.0.18+10 release 2.
-* Wed Jan 18 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.18.0.0.10.adopt0
+* Wed Jan 18 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.18.0.0.10-1
 - Eclipse Temurin 11.0.18+10 release.
-* Thu Oct 25 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.17.0.0.8.adopt0
+* Thu Oct 27 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.17.0.0.8-1
 - Eclipse Temurin 11.0.17+8 release.
-* Tue Aug 23 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.16.1.0.1.adopt0
+* Tue Aug 23 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.16.1.0.1-1
 - Eclipse Temurin 11.0.16.1+1 release.
-* Tue Jul 26 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.16.0.0.8.adopt0
+* Tue Jul 26 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.16.0.0.8-1
 - Eclipse Temurin 11.0.16.0+8 release.
-* Wed Apr 27 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.15.0.0.10.adopt0
+* Wed Apr 27 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.15.0.0.10-1
 - Eclipse Temurin 11.0.15.0+10 release.
-* Thu Feb 10 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.14.1.0.1-1.adopt0
+* Thu Feb 10 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.14.1.0.1-1
 - Eclipse Temurin 11.0.14.1+1 release.
-* Tue Feb 1 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.14.0.0.9-1.adopt0
+* Tue Feb 1 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.14.0.0.9-1
 - Eclipse Temurin 11.0.14+9 release.
-* Tue Aug 10 2021 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.12.0.0.7-1.adopt0
+* Tue Aug 10 2021 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 11.0.12.0.0.7-1
 - Eclipse Temurin 11.0.12+7 release.

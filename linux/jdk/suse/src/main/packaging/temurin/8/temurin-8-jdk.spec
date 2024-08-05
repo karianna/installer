@@ -1,11 +1,11 @@
-%global upstream_version 8u372-b07
+%global upstream_version 8u422-b05
 # Only [A-Za-z0-9.] allowed in version:
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/#_upstream_uses_invalid_characters_in_the_version
 # also not very intuitive:
 #  $ rpmdev-vercmp 8.0.312.0.1___8 8.0.312.0.0+7
 #  8.0.312.0.0___7 == 8.0.312.0.0+7
-%global spec_version 8.0.372.0.0.7
-%global spec_release 2
+%global spec_version 8.0.422.0.0.5
+%global spec_release 1
 %global priority 1081
 
 %global source_url_base https://github.com/adoptium/temurin8-binaries/releases/download
@@ -47,7 +47,7 @@
 %global src_num 6
 %global sha_src_num 7
 # jdk8 arm32 has different top directory name https://github.com/adoptium/temurin-build/issues/2795
-%global upstream_version 8u372-b07-aarch32-20230426
+%global upstream_version 8u422-b05-aarch32-20240718
 %endif
 # Allow for noarch SRPM build
 %ifarch noarch
@@ -268,19 +268,29 @@ fi
 %{prefix}
 
 %changelog
-* Thu May 4 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.372.0.0.7-2.adopt0
+* Wed Jul 17 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.422.0.0.5-1
+- Eclipse Temurin 8.0.422-b05 release.
+* Wed Apr 17 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.412.0.0.8-1
+- Eclipse Temurin 8.0.412-b08 release.
+* Wed Jan 24 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.402.0.0.6-1
+- Eclipse Temurin 8.0.402-b06 release.
+* Wed Oct 25 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.392.0.0.8-1
+- Eclipse Temurin 8.0.392-b08 release.
+* Tue Jul 25 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.382.0.0.5-1
+- Eclipse Temurin 8.0.382-b05 release.
+* Thu May 4 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.372.0.0.7-2
 - Fix alternatives linking.
-* Mon Apr 26 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.372.0.0.7-1.adopt0
+* Mon Apr 24 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.372.0.0.7-1
 - Eclipse Temurin 8.0.372-b07 release 1.
-* Wed Feb 22 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.362.0.0.9-2.adopt0
+* Wed Feb 22 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.362.0.0.9-2
 - Eclipse Temurin 8.0.362-b09 release 2.
-* Wed Jan 18 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.362.0.0.9.adopt0
+* Wed Jan 18 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.362.0.0.9-1
 - Eclipse Temurin 8.0.362-b09 release.
-* Thu Nov 03 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.352.0.0.8.adopt0
+* Thu Nov 03 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.352.0.0.8-1
 - Eclipse Temurin 8.0.352-b08 release.
-* Thu May 05 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.332.0.0.9.adopt0
+* Thu May 05 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.332.0.0.9-1
 - Eclipse Temurin 8.0.332-b09 release.
-* Thu Feb 03 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.322.0.0.6-1.adopt0
+* Thu Feb 03 2022 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.322.0.0.6-1
 - Eclipse Temurin 8.0.322-b06 release.
-* Tue Aug 31 2021 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.302.0.0.8-1.adopt0
+* Tue Aug 31 2021 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 8.0.302.0.0.8-1
 - Eclipse Temurin 8.0.302-b08 release.
